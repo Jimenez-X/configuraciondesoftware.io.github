@@ -1,0 +1,549 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Configuración de Software (SGC) - Mejorado</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        :root {
+            --primary-blue: #1E40FF;
+            --secondary-green: #10B981;
+            --warning-orange: #F59E0B;
+            --background-soft: #F9FAFB;
+            --text-dark: #1F2937;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-soft);
+        }
+
+        .task-item {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
+            border-radius: 1rem;
+            margin-bottom: 1.25rem;
+            border-left: 8px solid;
+        }
+
+        .task-pending {
+            border-left-color: var(--primary-blue);
+            background-color: white;
+        }
+
+            .task-pending:hover {
+                background-color: #f0f4ff;
+                transform: translateY(-2px);
+            }
+
+        .task-completed {
+            border-left-color: var(--secondary-green);
+            background-color: #F0FFF4;
+            opacity: 0.95;
+        }
+
+            .task-completed .task-title {
+                color: #6B7280;
+                font-weight: 500;
+                text-decoration: none;
+            }
+
+        .log-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+            .log-item:last-child {
+                border-bottom: none;
+            }
+
+        .filter-btn {
+            border: 1px solid transparent;
+        }
+
+            .filter-btn:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(30, 64, 255, 0.5);
+            }
+    </style>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': 'var(--primary-blue)',
+                        'success-green': 'var(--secondary-green)',
+                        'config-orange': 'var(--warning-orange)',
+                        'text-dark': 'var(--text-dark)',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="p-8 md:p-12">
+
+    <header class="mb-12 border-b-2 border-primary-blue/10 pb-6">
+        <h1 class="text-4xl font-extrabold text-text-dark mb-1">
+            <i class="bi bi-diagram-3-fill text-primary-blue mr-3"></i> Sistema de Gestión de Configuración (SGC)
+        </h1>
+        <p class="text-gray-600 text-lg">Panel de Control de Cambios, Trazabilidad de Requisitos y Persistencia Local.</p>
+    </header>
+
+    <div class="flex flex-col lg:flex-row gap-10 max-w-7xl mx-auto">
+
+        <div class="lg:w-2/3">
+
+            <div class="flex justify-start space-x-4 mb-8">
+                <span id="totalTasksCount" class="bg-white px-5 py-3 rounded-xl text-base font-semibold text-text-dark shadow-md border-l-4 border-gray-300">
+                    <i class="bi bi-list-task mr-2 text-text-dark"></i> Total ECs: 0
+                </span>
+                <span id="pendingTasksCount" class="bg-white px-5 py-3 rounded-xl text-base font-semibold text-primary-blue shadow-md border-l-4 border-primary-blue">
+                    <i class="bi bi-clock-fill mr-2"></i> Pendientes de Aprobación: 0
+                </span>
+            </div>
+
+            <h2 class="text-2xl font-bold text-text-dark mb-4">Elementos de Configuración (ECs) Propuestos</h2>
+
+            <div class="mb-8 flex space-x-3">
+                <button id="filter-all" class="filter-btn py-2 px-4 rounded-full text-sm font-semibold transition duration-200">Mostrar Todo</button>
+                <button id="filter-pending" class="filter-btn py-2 px-4 rounded-full text-sm font-semibold transition duration-200">En Desarrollo</button>
+                <button id="filter-completed" class="filter-btn py-2 px-4 rounded-full text-sm font-semibold transition duration-200">En Línea Base</button>
+            </div>
+
+            <div id="taskList" class="space-y-4">
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-xl mt-12 border border-primary-blue/20">
+                <h2 class="text-xl font-bold text-primary-blue mb-5"><i class="bi bi-plus-circle-fill mr-2"></i> Nueva Solicitud de Cambio (EC)</h2>
+                <form id="taskForm" class="space-y-5">
+
+                    <div>
+                        <label for="requirementId" class="block text-sm font-medium text-gray-700">ID de Requisito Asociado (RQM)</label>
+                        <input type="text" id="requirementId" class="mt-1 block w-full rounded-lg border-gray-300 p-3 shadow-sm focus:ring-primary-blue focus:border-primary-blue" required>
+                        <p class="text-xs text-gray-500 mt-1">Garantiza trazabilidad (Ejemplo: REQ-001, REQ-SEG-05).</p>
+                    </div>
+
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700">Título del EC (Módulo, Requisito)</label>
+                        <input type="text" id="title" class="mt-1 block w-full rounded-lg border-gray-300 p-3 shadow-sm focus:ring-primary-blue focus:border-primary-blue" required>
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700">Justificación Detallada del Cambio</label>
+                        <textarea id="description" rows="3" class="mt-1 block w-full rounded-lg border-gray-300 p-3 shadow-sm focus:ring-primary-blue focus:border-primary-blue" placeholder="Explique por qué este cambio es necesario para la línea base."></textarea>
+                    </div>
+                    <div>
+                        <label for="dueDate" class="block text-sm font-medium text-gray-700">Fecha de Control (Compromiso)</label>
+                        <input type="date" id="dueDate" class="mt-1 block w-full rounded-lg border-gray-300 p-3 shadow-sm focus:ring-primary-blue focus:border-primary-blue" required>
+                    </div>
+                    <button type="submit" class="w-full bg-primary-blue text-white py-3 px-4 rounded-lg hover:bg-blue-600 font-bold text-lg shadow-lg">
+                        <i class="bi bi-send-fill mr-2"></i> Registrar Propuesta
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="lg:w-1/3">
+            <div class="bg-white p-6 rounded-2xl shadow-xl border border-config-orange/20 sticky top-10">
+
+                <h2 class="text-xl font-bold text-config-orange mb-5 pb-3 border-b border-config-orange/20">
+                    <i class="bi bi-journal-check mr-2"></i> Trazabilidad del Control de Cambios
+                </h2>
+                <div id="scmLog" class="text-sm space-y-2 overflow-y-auto max-h-60 mb-8">
+                </div>
+
+                <h2 class="text-xl font-bold text-success-green mb-5 pb-3 border-b border-success-green/20">
+                    <i class="bi bi-lock-fill mr-2"></i> Línea Base Formal (BLS)
+                </h2>
+                <div class="space-y-3">
+                    <div class="bg-gray-50 p-4 rounded-lg border border-success-green/30">
+                        <p class="text-sm font-semibold text-text-dark mb-1">Versión Aprobada:</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-2xl font-extrabold text-success-green">V1.0.0</span>
+                            <span class="text-xs text-gray-500">Congelada: 2025-10-15</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between text-sm font-medium text-gray-700">
+                        <span><i class="bi bi-boxes mr-2 text-primary-blue"></i> Elementos Aprobados:</span>
+                        <span id="approvedEcCount" class="font-bold text-text-dark">0 ECs</span>
+                    </div>
+
+                    <button class="w-full bg-success-green text-white py-2 rounded-lg hover:bg-green-600 transition duration-200 mt-3 text-sm font-semibold" onclick="alert('Simulación: Generando artefacto controlado de la Línea Base V1.0.0.')">
+                        <i class="bi bi-download mr-2"></i> Generar Artefacto Controlado
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="messageBox" class="fixed bottom-6 right-6 p-4 text-white rounded-xl shadow-2xl transition-all duration-300 z-50 opacity-0 hidden"></div>
+
+    <script>
+
+
+
+        class ConfigurationElement {
+
+            constructor(id, title, description, dueDate, requirementId, isCompleted = false) {
+                this.id = id;
+                this.title = title;
+                this.description = description;
+                this.dueDate = dueDate;
+                this.requirementId = requirementId;
+                this.isCompleted = isCompleted;
+            }
+        }
+
+        class SCM_LoggerBLL {
+            constructor(view) {
+                this.view = view;
+                this.logs = this.loadLogsFromLocalStorage() || [];
+
+                if (this.logs.length === 0) {
+                    this.logAction('Sistema SGC', 'Inicialización de la Consola', 'Carga de los Elementos de Configuración iniciales (Línea Base 1.0).', 'N/A');
+                } else {
+                    this.view.renderLogs(this.logs);
+                }
+            }
+
+            loadLogsFromLocalStorage() {
+                const storedLogs = localStorage.getItem('sgcLogs');
+                return storedLogs ? JSON.parse(storedLogs) : null;
+            }
+
+            saveLogsToLocalStorage(logs) {
+                localStorage.setItem('sgcLogs', JSON.stringify(logs));
+            }
+
+            logAction(role, action, justification, taskTitle) {
+                const timestamp = new Date().toLocaleString();
+                const logEntry = { timestamp, role, action, justification, taskTitle };
+                this.logs.unshift(logEntry);
+                this.saveLogsToLocalStorage(this.logs);
+                this.view.renderLogs(this.logs);
+            }
+        }
+
+        class TaskRepository {
+            constructor(logger) {
+                this.logger = logger;
+
+                this.tasks = this.loadFromLocalStorage() || this.getDefaultTasks();
+                this.nextId = this.tasks.length > 0 ? Math.max(...this.tasks.map(t => t.id)) + 1 : 1;
+            }
+
+            getDefaultTasks() {
+                return [
+                    new ConfigurationElement(1, "Planificación de la reunión del CCB", "Preparar la agenda y roles.", new Date().toISOString().slice(0, 10), "REQ-001"),
+                    new ConfigurationElement(2, "Implementación del módulo de auditoría", "Crear el rastreo de usuarios y cambios críticos.", new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), "REQ-SEG-005"),
+                    new ConfigurationElement(3, "Actualización de dependencias (APROBADO)", "Actualizar librerías de terceros a la última versión estable.", new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), "REQ-002", true),
+                ];
+            }
+
+
+            loadFromLocalStorage() {
+                const storedTasks = localStorage.getItem('sgcTasks');
+                return storedTasks ? JSON.parse(storedTasks) : null;
+            }
+
+
+            saveToLocalStorage() {
+                localStorage.setItem('sgcTasks', JSON.stringify(this.tasks));
+            }
+
+            getFilteredAndSortedTasks(filter) {
+                let filtered = this.tasks;
+                if (filter === 'pending') {
+                    filtered = this.tasks.filter(t => !t.isCompleted);
+                } else if (filter === 'completed') {
+                    filtered = this.tasks.filter(t => t.isCompleted);
+                }
+
+                return filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            }
+
+
+            addTask(title, description, dueDate, requirementId) {
+                if (!title || !dueDate || !requirementId) {
+                    return { success: false, message: 'El título, la fecha de control y el ID de requisito son obligatorios.' };
+                }
+                if (new Date(dueDate).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)) {
+                    return { success: false, message: 'ERROR: La fecha de control no puede ser anterior al día de hoy.' };
+                }
+
+                const descriptionText = description || 'Sin justificación detallada.';
+                const newTask = new ConfigurationElement(this.nextId++, title, descriptionText, dueDate, requirementId);
+                this.tasks.push(newTask);
+
+               
+                this.logger.logAction('Desarrollador', 'Añadir Propuesta de EC', `Asociado a ${requirementId}. Justificación: "${descriptionText}"`, newTask.title);
+
+                this.saveToLocalStorage();
+                return { success: true };
+            }
+
+            toggleCompletion(id) {
+                const task = this.tasks.find(t => t.id === id);
+                if (task) {
+                    task.isCompleted = !task.isCompleted;
+                    const status = task.isCompleted ? 'Aprobada a Línea Base' : 'Reabierta para Ajuste';
+                    const role = task.isCompleted ? 'Junta de Control de Cambios (CCB)' : 'Equipo QA';
+                    this.logger.logAction(role, `EC marcada como ${status}`, `Cambio de estado del Elemento de Configuración (ID ${id}).`, task.title);
+                    this.saveToLocalStorage();
+                    return { success: true, status };
+                }
+                return { success: false };
+            }
+
+            deleteTask(id) {
+                const taskToDelete = this.tasks.find(t => t.id === id);
+                if (!taskToDelete) return { success: false };
+
+                this.tasks = this.tasks.filter(t => t.id !== id);
+                this.logger.logAction('Gestor de Configuración', 'Derogación/Eliminación de EC', `Eliminación permanente del EC.`, taskToDelete.title);
+                this.saveToLocalStorage();
+                return { success: true };
+            }
+        }
+
+
+        class TaskView {
+            constructor() {
+                this.taskList = document.getElementById('taskList');
+                this.totalCount = document.getElementById('totalTasksCount');
+                this.pendingCount = document.getElementById('pendingTasksCount');
+                this.scmLog = document.getElementById('scmLog');
+                this.messageBox = document.getElementById('messageBox');
+                this.filterBtns = document.querySelectorAll('.filter-btn');
+                this.approvedEcCount = document.getElementById('approvedEcCount');
+            }
+
+            renderTasks(tasks, currentFilter) {
+                this.taskList.innerHTML = '';
+
+                if (tasks.length === 0) {
+                    const filterText = currentFilter === 'pending' ? 'propuestos en desarrollo' : (currentFilter === 'completed' ? 'aprobados en línea base' : 'registrados');
+                    this.taskList.innerHTML = `<div class="bg-white p-6 text-gray-500 rounded-xl shadow-md border-l-4 border-config-orange"><i class="bi bi-info-circle mr-2"></i> No hay Elementos de Configuración ${filterText} para mostrar en el sistema.</div>`;
+                    return;
+                }
+
+                tasks.forEach(task => {
+                    const isCompleted = task.isCompleted;
+                    const taskClass = isCompleted ? 'task-completed' : 'task-pending';
+                    const buttonColor = isCompleted ? 'bg-config-orange hover:bg-orange-600' : 'bg-success-green hover:bg-green-700';
+                    const buttonIcon = isCompleted ? 'bi-arrow-counterclockwise' : 'bi-check-circle-fill';
+                    const buttonText = isCompleted ? 'Reabrir para Cambio' : 'Aprobar a Línea Base';
+
+                    const statusBadge = isCompleted
+                        ? `<span class="ml-3 px-3 py-1 text-xs font-semibold rounded-full bg-success-green/20 text-success-green"><i class="bi bi-lock-fill mr-1"></i> Línea Base Congelada</span>`
+                        : `<span class="ml-3 px-3 py-1 text-xs font-semibold rounded-full bg-primary-blue/20 text-primary-blue"><i class="bi bi-code-slash mr-1"></i> Pendiente CCB</span>`;
+
+
+                    const rqmBadge = `<span class="px-2 py-0.5 text-xs font-bold rounded bg-gray-200 text-gray-700 mr-3"><i class="bi bi-paperclip mr-1"></i> ${task.requirementId || 'N/A'}</span>`;
+
+
+                    const taskElement = `
+                                    <div class="task-item p-5 flex items-start justify-between ${taskClass}">
+                                        <div class="flex-grow min-w-0 pr-6">
+                                            <div class="flex items-center mb-1">
+                                                ${rqmBadge}
+                                                <strong class="task-title text-text-dark text-lg">${task.title}</strong>
+                                                ${statusBadge}
+                                            </div>
+                                            <p class="text-sm text-gray-600 mt-2">
+                                                <strong class="font-semibold text-text-dark">Justificación:</strong> ${task.description}
+                                            </p>
+                                            <p class="text-xs text-gray-500 mt-2">Control de Fecha: ${task.dueDate}</p>
+                                        </div>
+                                        <div class="flex space-x-2 flex-shrink-0">
+                                            <button onclick="appController.toggleCompletion(${task.id})"
+                                                            class="text-white text-sm py-2 px-4 rounded-full ${buttonColor} font-medium transition duration-150 shadow-md whitespace-nowrap">
+                                                <i class="bi ${buttonIcon}"></i> ${buttonText}
+                                            </button>
+                                            <button onclick="appController.confirmDelete(${task.id})"
+                                                            class="bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-full transition duration-150 shadow-md"
+                                                            title="Eliminar Elemento de Configuración">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                    this.taskList.innerHTML += taskElement;
+                });
+                this.updateTaskCounts(window.appController.model.tasks);
+            }
+
+            updateTaskCounts(allTasks) {
+                const total = allTasks.length;
+                const pending = allTasks.filter(t => !t.isCompleted).length;
+                const approved = allTasks.filter(t => t.isCompleted).length;
+
+                this.totalCount.innerHTML = `<i class="bi bi-list-task mr-2 text-text-dark"></i> Total ECs: ${total}`;
+                this.pendingCount.innerHTML = `<i class="bi bi-clock-fill mr-2"></i> Pendientes de Aprobación: ${pending}`;
+                this.approvedEcCount.textContent = `${approved} ECs`;
+            }
+
+            renderLogs(logs) {
+                this.scmLog.innerHTML = '';
+                logs.forEach(log => {
+                    const icon = log.action.includes('Añadir') ? 'bi-upload' : (log.action.includes('Aprobada') ? 'bi-check-circle-fill' : (log.action.includes('Reabierta') ? 'bi-arrow-repeat' : 'bi-trash-fill'));
+                    const color = log.action.includes('Derogación') ? 'text-red-600' : (log.action.includes('Aprobada') ? 'text-success-green' : 'text-primary-blue');
+
+                    const logElement = `
+                                    <div class="log-item">
+                                        <p class="text-xs font-bold ${color} flex items-center mb-0.5">
+                                            <i class="bi ${icon} mr-2 text-sm"></i> ${log.action}
+                                        </p>
+                                        <p class="text-sm text-gray-800 font-medium ml-4 truncate">EC: ${log.taskTitle}</p>
+                                        <p class="text-xs text-gray-500 mt-0.5 italic ml-4">Rol: ${log.role} | ${new Date(log.timestamp).toLocaleTimeString()}</p>
+                                    </div>
+                                `;
+                    this.scmLog.innerHTML += logElement;
+                });
+            }
+
+            showMessage(message, type = 'info') {
+                this.messageBox.innerHTML = message;
+                this.messageBox.classList.remove('hidden', 'opacity-0', 'bg-red-600', 'bg-config-orange', 'bg-success-green', 'bg-primary-blue');
+                this.messageBox.classList.add('opacity-100');
+
+                switch (type) {
+                    case 'success':
+                        this.messageBox.classList.add('bg-success-green');
+                        break;
+                    case 'warning':
+                        this.messageBox.classList.add('bg-config-orange');
+                        break;
+                    case 'error':
+                        this.messageBox.classList.add('bg-red-600');
+                        break;
+                    default:
+                        this.messageBox.classList.add('bg-primary-blue');
+                }
+
+                setTimeout(() => {
+                    this.messageBox.classList.remove('opacity-100');
+                    this.messageBox.classList.add('opacity-0');
+                }, 3000);
+            }
+
+            setFilterStyle(filter) {
+                this.filterBtns.forEach(btn => {
+                    btn.classList.remove('bg-primary-blue', 'text-white', 'shadow-lg');
+                    btn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                });
+                document.getElementById(`filter-${filter}`).classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                document.getElementById(`filter-${filter}`).classList.add('bg-primary-blue', 'text-white', 'shadow-lg');
+            }
+        }
+
+
+
+
+        class TaskController {
+            constructor(model, view) {
+                this.model = model;
+                this.view = view;
+                this.currentFilter = 'all';
+
+                document.getElementById('taskForm').onsubmit = (e) => this.handleAddTask(e);
+                document.getElementById('filter-all').onclick = () => this.setFilter('all');
+                document.getElementById('filter-pending').onclick = () => this.setFilter('pending');
+                document.getElementById('filter-completed').onclick = () => this.setFilter('completed');
+            }
+
+            init() {
+                this.renderAll();
+                this.view.setFilterStyle(this.currentFilter);
+                this.setInitialRequirementId();
+            }
+
+            renderAll() {
+                const filteredTasks = this.model.getFilteredAndSortedTasks(this.currentFilter);
+                this.view.renderTasks(filteredTasks, this.currentFilter);
+            }
+
+            setInitialRequirementId() {
+             
+                const nextReqId = this.model.nextId;
+                document.getElementById('requirementId').value = `REQ-${String(nextReqId).padStart(3, '0')}`;
+            }
+
+            handleAddTask(e) {
+                e.preventDefault();
+                const title = document.getElementById('title').value.trim();
+                const description = document.getElementById('description').value.trim();
+                const dueDate = document.getElementById('dueDate').value;
+                const requirementId = document.getElementById('requirementId').value.trim();
+
+                const result = this.model.addTask(title, description, dueDate, requirementId);
+
+                if (result.success) {
+                    document.getElementById('taskForm').reset();
+                    this.setInitialRequirementId();
+
+                   
+                    this.view.showMessage(
+                        `Elemento de Configuración (EC) propuesto con éxito. <br>Título: <strong>${title}</strong>. <br>RQM: <strong>${requirementId}</strong>.`,
+                        'success'
+                    );
+
+                    this.renderAll();
+                } else {
+                    this.view.showMessage(result.message, 'warning');
+                }
+            }
+
+            toggleCompletion(id) {
+                const result = this.model.toggleCompletion(id);
+                if (result.success) {
+                    this.view.showMessage(`EC movida a estado: ${result.status}.`, 'info');
+                    this.renderAll();
+                }
+            }
+
+            confirmDelete(id) {
+                if (window.confirm('ADVERTENCIA: ¿Seguro que quiere DEROGAR este Elemento de Configuración? Esto se registra como un retroceso en la línea base.')) {
+                    this.handleDeleteTask(id);
+                }
+            }
+
+            handleDeleteTask(id) {
+                const result = this.model.deleteTask(id);
+                if (result.success) {
+                    this.view.showMessage('Elemento de Configuración (EC) Derogado. Se ha registrado el evento.', 'error');
+                    this.renderAll();
+                }
+            }
+
+            setFilter(filter) {
+                this.currentFilter = filter;
+                this.view.setFilterStyle(filter);
+                this.renderAll();
+            }
+        }
+
+
+
+        window.onload = () => {
+            const view = new TaskView();
+
+            const logger = new SCM_LoggerBLL(view);
+
+            const repository = new TaskRepository(logger);
+
+
+            window.appController = new TaskController(repository, view);
+            window.appController.init();
+        };
+
+    </script>
+</body>
+</html>
